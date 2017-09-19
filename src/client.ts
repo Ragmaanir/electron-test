@@ -2,7 +2,7 @@ import * as ipc from 'node-ipc'
 // import {Socket} from 'net'
 
 ipc.config.id   = 'hello'
-// ipc.config.retry= 1500
+// ipc.config.retry= 5
 
 ipc.connectTo(
   'world',
@@ -11,6 +11,13 @@ ipc.connectTo(
       'connect',
       () => {
         ipc.log('Received: CONNECT')
+      }
+    )
+
+    ipc.of.world.on(
+      'ready',
+      () => {
+        ipc.log('Received: READY')
         ipc.log('Sending: SCREENSHOT')
         ipc.of.world.emit('screenshot', '')
       }

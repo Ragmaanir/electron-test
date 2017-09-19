@@ -44,6 +44,10 @@ function createWindow () {
   //   console.log("resize")
   // })
 
+  // win.once('close', () => {
+  //   console.log("close")
+  // })
+
   // Emitted when the window is closed.
   win.once('closed', () => {
     console.log("closed")
@@ -53,11 +57,19 @@ function createWindow () {
     win = null
   })
 
-  // win.once('close', () => {
-  //   console.log("close")
-  // })
+  let ready = false
 
-  let contents = win.webContents
+  win.on("ready-to-show", (event : Event) => {
+    console.log("ready-to-show")
+
+    ready = true
+
+    if(client_socket) {
+      ipc.server.emit(client_socket, 'ready')
+    }
+  })
+
+  let client_socket : Socket | null = null
 
   let screenshot = (name : string, callback : () => void) => {
     win.capturePage((img : typeof NativeImage) => {
@@ -68,29 +80,24 @@ function createWindow () {
     })
   }
 
-  // contents.on("paint", (event : Event) => {
-  //   console.log("PAINT")
-  // })
-
-  win.on("ready-to-show", (event : Event) => {
-    console.log("ready-to-show")
-
-    // screenshot("ready-to-show.png")
-    // win.close()
-  })
-
-  contents.once("did-finish-load", (event : Event) => {
-    console.log("did-finish-load")
-    // contents.executeJavaScript("1+1", () => {
-    // })
-  })
+  // let contents = win.webContents
 
   // contents.once("dom-ready", (event : Event) => {
   //   console.log("dom-ready")
   // })
 
+  // contents.on("paint", (event : Event) => {
+  //   console.log("PAINT")
+  // })
+
+  // contents.once("did-finish-load", (event : Event) => {
+  //   console.log("did-finish-load")
+  //   // contents.executeJavaScript("1+1", () => {
+  //   // })
+  // })
+
   ipc.config.id    = 'world'
-  ipc.config.retry = 1500
+  // ipc.config.retry = 5
 
   ipc.serve(
     () => {
@@ -102,6 +109,17 @@ function createWindow () {
             ipc.log('Sending: SCREENSHOT.DONE')
             ipc.server.emit(socket, 'screenshot.done')
           })
+        }
+      )
+
+      ipc.server.on(
+        'connect',
+        (socket : Socket) => {
+          ipc.log('Received: CONNECT')
+          client_socket = socket
+          if(ready) {
+            ipc.server.emit(client_socket, 'ready')
+          }
         }
       )
 
