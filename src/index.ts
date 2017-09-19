@@ -2,6 +2,10 @@
 // import {app, BrowserWindow} from 'electron'
 import * as path from "path"
 import * as url from "url"
+import * as ipc from 'node-ipc'
+import {Socket} from 'net'
+
+// const Socket = ipc.Socket
 
 const electron = require('electron')
 const app = electron.app
@@ -55,11 +59,12 @@ function createWindow () {
 
   let contents = win.webContents
 
-  let screenshot = (name : string) => {
+  let screenshot = (name : string, callback : () => void) => {
     win.capturePage((img : typeof NativeImage) => {
-      require('fs').writeFileSync(name, img.toPng())
-      console.log(img.toPng().length)
-      win.close()
+      require('fs').writeFile(name, img.toPng(), () => {
+        console.log(img.toPng().length)
+        callback()
+      })
     })
   }
 
@@ -70,7 +75,8 @@ function createWindow () {
   win.on("ready-to-show", (event : Event) => {
     console.log("ready-to-show")
 
-    screenshot("ready-to-show.png")
+    // screenshot("ready-to-show.png")
+    // win.close()
   })
 
   contents.once("did-finish-load", (event : Event) => {
@@ -82,6 +88,43 @@ function createWindow () {
   // contents.once("dom-ready", (event : Event) => {
   //   console.log("dom-ready")
   // })
+
+  ipc.config.id    = 'world'
+  ipc.config.retry = 1500
+
+  ipc.serve(
+    () => {
+      ipc.server.on(
+        'screenshot',
+        (data : string, socket : Socket) => {
+          ipc.log('Received: SCREENSHOT')
+          screenshot("didit.png", () => {
+            ipc.log('Sending: SCREENSHOT.DONE')
+            ipc.server.emit(socket, 'screenshot.done')
+          })
+        }
+      )
+
+      ipc.server.on(
+        'socket.disconnected',
+        (socket : Socket, destroyedSocketID : string) => {
+          ipc.log('Received: SOCKET.DISCONNECT : ' + destroyedSocketID)
+        }
+      )
+
+      ipc.server.on(
+        'quit',
+        (data : string, socket : Socket) => {
+          ipc.log('Received: QUIT')
+          win.close()
+        }
+      )
+    }
+  )
+
+  ipc.server.start();
+
+  console.log("server started")
 
   // and load the index.html of the app.
   win.loadURL(url.format({
